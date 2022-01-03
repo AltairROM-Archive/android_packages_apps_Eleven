@@ -1,16 +1,20 @@
 /*
  * Copyright (C) 2012 Andrew Neal
  * Copyright (C) 2014 The CyanogenMod Project
- * Licensed under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with the
- * License. You may obtain a copy of the License at
- * http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law
- * or agreed to in writing, software distributed under the License is
- * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied. See the License for the specific language
- * governing permissions and limitations under the License.
+ * Copyright (C) 2021 The LineageOS Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.lineageos.eleven.appwidgets;
 
 import android.annotation.SuppressLint;
@@ -21,7 +25,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.text.TextUtils;
-import android.view.View;
 import android.widget.RemoteViews;
 
 import org.lineageos.eleven.MusicPlaybackService;
@@ -29,14 +32,14 @@ import org.lineageos.eleven.R;
 import org.lineageos.eleven.ui.activities.HomeActivity;
 
 /**
- * 4x1 App-Widget
+ * Square App-Widget
  *
  * @author Andrew Neal (andrewdneal@gmail.com)
  */
 @SuppressLint("NewApi")
 public class AppWidgetSmall extends AppWidgetBase {
 
-    public static final String CMDAPPWIDGETUPDATE = "app_widget_small_update";
+    public static final String APP_WIDGET_UPDATE = "app_widget_small_update";
 
     private static AppWidgetSmall mInstance;
 
@@ -47,15 +50,12 @@ public class AppWidgetSmall extends AppWidgetBase {
         return mInstance;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void onUpdate(final Context context, final AppWidgetManager appWidgetManager,
             final int[] appWidgetIds) {
         defaultAppWidget(context, appWidgetIds);
         final Intent updateIntent = new Intent(MusicPlaybackService.SERVICECMD);
-        updateIntent.putExtra(MusicPlaybackService.CMDNAME, AppWidgetSmall.CMDAPPWIDGETUPDATE);
+        updateIntent.putExtra(MusicPlaybackService.CMDNAME, AppWidgetSmall.APP_WIDGET_UPDATE);
         updateIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds);
         updateIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY);
         context.sendBroadcast(updateIntent);
@@ -68,12 +68,12 @@ public class AppWidgetSmall extends AppWidgetBase {
     private void defaultAppWidget(final Context context, final int[] appWidgetIds) {
         final RemoteViews appWidgetViews = new RemoteViews(context.getPackageName(),
                 R.layout.app_widget_small);
-        appWidgetViews.setViewVisibility(R.id.app_widget_small_info_container, View.INVISIBLE);
         linkButtons(context, appWidgetViews);
         pushUpdate(context, appWidgetIds, appWidgetViews);
     }
 
-    private void pushUpdate(final Context context, final int[] appWidgetIds, final RemoteViews views) {
+    private void pushUpdate(final Context context, final int[] appWidgetIds,
+                            final RemoteViews views) {
         final AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
         if (appWidgetIds != null) {
             appWidgetManager.updateAppWidget(appWidgetIds, views);
@@ -114,16 +114,15 @@ public class AppWidgetSmall extends AppWidgetBase {
                 R.layout.app_widget_small);
 
         final CharSequence trackName = service.getTrackName();
+        final CharSequence albumName = service.getAlbumName();
         final CharSequence artistName = service.getArtistName();
         final Bitmap bitmap = service.getAlbumArt(true).getBitmap();
 
         // Set the titles and artwork
-        if (TextUtils.isEmpty(trackName) && TextUtils.isEmpty(artistName)) {
-            appWidgetView.setViewVisibility(R.id.app_widget_small_info_container, View.INVISIBLE);
-        } else {
-            appWidgetView.setViewVisibility(R.id.app_widget_small_info_container, View.VISIBLE);
+        if (!TextUtils.isEmpty(trackName) || !TextUtils.isEmpty(artistName)) {
             appWidgetView.setTextViewText(R.id.app_widget_small_line_one, trackName);
-            appWidgetView.setTextViewText(R.id.app_widget_small_line_two, artistName);
+            appWidgetView.setTextViewText(R.id.app_widget_small_line_two, albumName);
+            appWidgetView.setTextViewText(R.id.app_widget_small_line_three, artistName);
         }
         appWidgetView.setImageViewBitmap(R.id.app_widget_small_image, bitmap);
 
@@ -131,12 +130,12 @@ public class AppWidgetSmall extends AppWidgetBase {
         final boolean isPlaying = service.isPlaying();
         if (isPlaying) {
             appWidgetView.setImageViewResource(R.id.app_widget_small_play,
-                    R.drawable.btn_playback_pause);
+                    R.drawable.btn_playback_pause_widget);
             appWidgetView.setContentDescription(R.id.app_widget_small_play,
                     service.getString(R.string.accessibility_pause));
         } else {
             appWidgetView.setImageViewResource(R.id.app_widget_small_play,
-                    R.drawable.btn_playback_play);
+                    R.drawable.btn_playback_play_widget);
             appWidgetView.setContentDescription(R.id.app_widget_small_play,
                     service.getString(R.string.accessibility_play));
         }
@@ -149,7 +148,7 @@ public class AppWidgetSmall extends AppWidgetBase {
     }
 
     /**
-     * Link up various button actions using {@link PendingIntents}.
+     * Link up various button actions using {@link PendingIntent}s.
      *
      */
     private void linkButtons(final Context context, final RemoteViews views) {
@@ -161,21 +160,13 @@ public class AppWidgetSmall extends AppWidgetBase {
         // Home
         action = new Intent(context, HomeActivity.class);
         action.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        pendingIntent = PendingIntent.getActivity(context, 0, action, 0);
+        pendingIntent = PendingIntent.getActivity(context, 0, action, PendingIntent.FLAG_IMMUTABLE);
         views.setOnClickPendingIntent(R.id.app_widget_small_info_container, pendingIntent);
         views.setOnClickPendingIntent(R.id.app_widget_small_image, pendingIntent);
 
-        // Previous track
-        pendingIntent = buildPendingIntent(context, MusicPlaybackService.PREVIOUS_ACTION, serviceName);
-        views.setOnClickPendingIntent(R.id.app_widget_small_previous, pendingIntent);
-
         // Play and pause
-        pendingIntent = buildPendingIntent(context, MusicPlaybackService.TOGGLEPAUSE_ACTION, serviceName);
+        pendingIntent = buildPendingIntent(context, MusicPlaybackService.TOGGLEPAUSE_ACTION,
+                serviceName);
         views.setOnClickPendingIntent(R.id.app_widget_small_play, pendingIntent);
-
-        // Next track
-        pendingIntent = buildPendingIntent(context, MusicPlaybackService.NEXT_ACTION, serviceName);
-        views.setOnClickPendingIntent(R.id.app_widget_small_next, pendingIntent);
     }
-
 }

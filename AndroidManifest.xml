@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2012 Andrew Neal
      Copyright (C) 2014 The CyanogenMod Project
-     Copyright (C) 2019-2020 The LineageOS Project
+     Copyright (C) 2019-2021 The LineageOS Project
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -18,14 +18,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="org.lineageos.eleven"
-    android:versionCode="3"
-    android:versionName="3.0"
+    android:versionCode="401"
+    android:versionName="4.0.1"
     tools:ignore="GradleOverrides">
 
     <uses-sdk
-        android:minSdkVersion="26"
-        android:targetSdkVersion="29" />
+        android:minSdkVersion="28"
+        android:targetSdkVersion="30" />
 
+    <!-- Android Studio will complain about not being able to
+         resove the symbol, but it compiles with no problem.
+         Do not remove for as long as there are officially supported
+         devices that were supported in 14.1 -->
+    <!-- suppress AndroidElementNotAllowed -->
     <original-package android:name="com.cyanogenmod.eleven" />
 
     <!-- Used for caching and creating new playlists -->
@@ -39,13 +44,15 @@
     <!-- Lower or raise the music based on the phone state -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- Used to set the devices's ringtone -->
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <!-- Used to create launcher shortcuts -->
     <uses-permission android:name="com.android.launcher.permission.INSTALL_SHORTCUT" />
     <!-- Allows Eleven to read from External Storage -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <!-- Allows Eleven to modify media files on external storage -->
-    <uses-permission android:name="android.permission.WRITE_MEDIA_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_MEDIA_STORAGE"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- Audio Visualizer Permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -205,5 +212,4 @@
             android:label="@string/app_name"
             android:process=":main" />
     </application>
-
 </manifest>

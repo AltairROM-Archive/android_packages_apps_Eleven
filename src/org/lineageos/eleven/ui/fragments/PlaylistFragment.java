@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2012 Andrew Neal
  * Copyright (C) 2014 The CyanogenMod Project
- * Copyright (C) 2019 The LineageOS Project
+ * Copyright (C) 2019-2021 The LineageOS Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,21 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.lineageos.eleven.ui.fragments;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
-import android.widget.ListView;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentActivity;
 import androidx.loader.app.LoaderManager;
 import androidx.loader.content.Loader;
+import androidx.recyclerview.widget.DefaultItemAnimator;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import org.lineageos.eleven.Config.SmartPlaylistType;
 import org.lineageos.eleven.MusicStateListener;
@@ -38,16 +39,13 @@ import org.lineageos.eleven.adapters.PagerAdapter;
 import org.lineageos.eleven.adapters.PlaylistAdapter;
 import org.lineageos.eleven.loaders.PlaylistLoader;
 import org.lineageos.eleven.model.Playlist;
-import org.lineageos.eleven.recycler.RecycleHolder;
 import org.lineageos.eleven.ui.activities.BaseActivity;
 import org.lineageos.eleven.ui.fragments.phone.MusicBrowserFragment;
 import org.lineageos.eleven.utils.NavUtils;
 import org.lineageos.eleven.utils.PlaylistPopupMenuHelper;
 import org.lineageos.eleven.utils.PopupMenuHelper;
-import org.lineageos.eleven.widgets.IPopupMenuCallback;
 import org.lineageos.eleven.widgets.LoadingEmptyContainer;
 
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -57,18 +55,12 @@ import java.util.List;
  * @author Andrew Neal (andrewdneal@gmail.com)
  */
 public class PlaylistFragment extends MusicBrowserFragment implements
-        LoaderManager.LoaderCallbacks<List<Playlist>>,
-        OnItemClickListener, MusicStateListener {
+        LoaderManager.LoaderCallbacks<List<Playlist>>, MusicStateListener {
 
     /**
      * The adapter for the list
      */
     private PlaylistAdapter mAdapter;
-
-    /**
-     * The list view
-     */
-    private ListView mListView;
 
     /**
      * Pop up menu helper
@@ -95,7 +87,8 @@ public class PlaylistFragment extends MusicBrowserFragment implements
     @Override
     public void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mPopupMenuHelper = new PlaylistPopupMenuHelper(getActivity(), getFragmentManager(), null) {
+        mPopupMenuHelper = new PlaylistPopupMenuHelper(getActivity(), getChildFragmentManager(),
+                null) {
             @Override
             public Playlist getPlaylist(int position) {
                 return mAdapter.getItem(position);
@@ -103,29 +96,33 @@ public class PlaylistFragment extends MusicBrowserFragment implements
         };
 
         // Create the adapter
-        mAdapter = new PlaylistAdapter(getActivity());
-        mAdapter.setPopupMenuClickedListener((v, position) -> mPopupMenuHelper.showPopupMenu(v, position));
+        mAdapter = new PlaylistAdapter(requireActivity(), this::onItemClick);
+        mAdapter.setPopupMenuClickedListener((v, position) ->
+                mPopupMenuHelper.showPopupMenu(v, position));
     }
 
     @Override
     public View onCreateView(@NonNull final LayoutInflater inflater, final ViewGroup container,
                              final Bundle savedInstanceState) {
         // The View for the fragment's UI
-        final ViewGroup rootView = (ViewGroup) inflater.inflate(R.layout.list_base, container, false);
+        final ViewGroup rootView = (ViewGroup) inflater.inflate(R.layout.fragment_list,
+                container, false);
         // Initialize the list
-        mListView = rootView.findViewById(R.id.list_base);
-        // Set the data behind the grid
-        mListView.setAdapter(mAdapter);
-        // Release any references to the recycled Views
-        mListView.setRecyclerListener(new RecycleHolder());
-        // Play the selected song
-        mListView.setOnItemClickListener(this);
+        // The list view
+        RecyclerView listView = rootView.findViewById(R.id.list_base);
+        listView.setLayoutManager(new LinearLayoutManager(requireActivity()));
+        listView.setItemAnimator(new DefaultItemAnimator());
+        listView.setAdapter(mAdapter);
+
         // Setup the loading and empty state
         mLoadingEmptyContainer = rootView.findViewById(R.id.loading_empty_container);
-        mListView.setEmptyView(mLoadingEmptyContainer);
+        mLoadingEmptyContainer.setVisibility(View.VISIBLE);
 
         // Register the music status listener
-        ((BaseActivity)getActivity()).setMusicStateListenerListener(this);
+        final FragmentActivity activity = getActivity();
+        if (activity instanceof BaseActivity) {
+            ((BaseActivity) activity).setMusicStateListenerListener(this);
+        }
 
         return rootView;
     }
@@ -134,21 +131,22 @@ public class PlaylistFragment extends MusicBrowserFragment implements
     public void onDestroyView() {
         super.onDestroyView();
 
-        ((BaseActivity)getActivity()).removeMusicStateListenerListener(this);
+        final FragmentActivity activity = getActivity();
+        if (activity instanceof BaseActivity) {
+            ((BaseActivity) activity).removeMusicStateListenerListener(this);
+        }
     }
 
     @Override
-    public void onActivityCreated(final Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
         // Enable the options menu
         setHasOptionsMenu(true);
         // Start the loader
-        initLoader(null, this);
+        initLoader(this);
     }
 
-    @Override
-    public void onItemClick(final AdapterView<?> parent, final View view, final int position,
-            final long id) {
+    private void onItemClick(int position) {
         Playlist playlist = mAdapter.getItem(position);
 
         SmartPlaylistType playlistType = SmartPlaylistType.getTypeById(playlist.mPlaylistId);
@@ -168,11 +166,14 @@ public class PlaylistFragment extends MusicBrowserFragment implements
     }
 
     @Override
-    public void onLoadFinished(@NonNull final Loader<List<Playlist>> loader, final List<Playlist> data) {
+    public void onLoadFinished(@NonNull final Loader<List<Playlist>> loader,
+                               final List<Playlist> data) {
         if (data.isEmpty()) {
             mLoadingEmptyContainer.showNoResults();
             return;
         }
+
+        mLoadingEmptyContainer.setVisibility(View.GONE);
 
         // Start fresh, fill adapter with new data and create cache
         mAdapter.unload();
@@ -188,7 +189,7 @@ public class PlaylistFragment extends MusicBrowserFragment implements
         }
 
         // after the "smart playlists" are added, sort and add remaining playlists
-        Collections.sort(data, new Playlist.IgnoreCaseComparator());
+        data.sort(new Playlist.IgnoreCaseComparator());
         for (final Playlist playlist : data) {
             mAdapter.add(playlist);
         }
@@ -204,7 +205,7 @@ public class PlaylistFragment extends MusicBrowserFragment implements
 
     @Override
     public void restartLoader() {
-        restartLoader(null, this);
+        restartLoader(this);
     }
 
     @Override
